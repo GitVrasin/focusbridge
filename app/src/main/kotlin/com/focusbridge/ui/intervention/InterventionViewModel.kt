@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.focusbridge.domain.repository.GoalRepository
 import com.focusbridge.domain.usecase.ExtendLimitUseCase
 import com.focusbridge.domain.usecase.RecordInterventionUseCase
+import com.focusbridge.service.UsageMonitorService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,11 +29,13 @@ data class InterventionUiState(
     val eventId: Long = -1L,
     val goalTitle: String = "",
     val isLoading: Boolean = false,
-    val canExtend: Boolean = true
+    val canExtend: Boolean = true,
+    // Global mode has no per-app limit to extend against, hide the button
+    val isGlobalMode: Boolean = false
 )
 
 sealed interface InterventionEffect {
-    data class OpenUrl(val url: String) : InterventionEffect
+    data class OpenAction(val target: String, val type: String?) : InterventionEffect
     data object Finish : InterventionEffect
 }
 
@@ -60,6 +63,7 @@ class InterventionViewModel @Inject constructor(
         nextActionType: String?,
         eventId: Long
     ) {
+        val isGlobal = packageName == UsageMonitorService.GLOBAL_KEY
         _uiState.update {
             it.copy(
                 packageName = packageName,
@@ -70,7 +74,10 @@ class InterventionViewModel @Inject constructor(
                 nextActionLabel = nextActionLabel,
                 nextActionTarget = nextActionTarget,
                 nextActionType = nextActionType,
-                eventId = eventId
+                eventId = eventId,
+                isGlobalMode = isGlobal,
+                // Extension requires a DB-backed per-app limit; not available in global mode
+                canExtend = !isGlobal
             )
         }
         viewModelScope.launch {
@@ -86,7 +93,7 @@ class InterventionViewModel @Inject constructor(
                 recordInterventionUseCase.recordAccepted(state.eventId, actionId)
             }
             state.nextActionTarget?.let { target ->
-                _effects.emit(InterventionEffect.OpenUrl(target))
+                _effects.emit(InterventionEffect.OpenAction(target, state.nextActionType))
             }
             _effects.emit(InterventionEffect.Finish)
         }
@@ -95,9 +102,8 @@ class InterventionViewModel @Inject constructor(
     fun onExtend() {
         viewModelScope.launch {
             val state = _uiState.value
-            val packageName = state.packageName
-            recordInterventionUseCase.recordExtension(packageName, state.usageMs)
-            val result = extendLimitUseCase(packageName)
+            recordInterventionUseCase.recordExtension(state.packageName, state.usageMs)
+            val result = extendLimitUseCase(state.packageName)
             val canExtend = result !is ExtendLimitUseCase.ExtendResult.LimitReached
             _uiState.update { it.copy(canExtend = canExtend) }
             _effects.emit(InterventionEffect.Finish)

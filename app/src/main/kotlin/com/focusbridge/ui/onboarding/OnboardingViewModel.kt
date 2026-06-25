@@ -2,7 +2,6 @@ package com.focusbridge.ui.onboarding
 
 import android.app.AppOpsManager
 import android.content.Context
-import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Process
@@ -143,14 +142,21 @@ class OnboardingViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             val pm = context.packageManager
-            val apps = pm.getInstalledApplications(PackageManager.GET_META_DATA)
-                .filter { it.flags and ApplicationInfo.FLAG_SYSTEM == 0 }
-                .map { appInfo ->
-                    InstalledAppInfo(
-                        packageName = appInfo.packageName,
-                        displayName = pm.getApplicationLabel(appInfo).toString(),
-                        isSuggested = appInfo.packageName in DistractingApp.SUGGESTED_PACKAGES
-                    )
+            val launcherIntent = android.content.Intent(android.content.Intent.ACTION_MAIN)
+                .addCategory(android.content.Intent.CATEGORY_LAUNCHER)
+            val apps = pm.queryIntentActivities(launcherIntent, 0)
+                .map { it.activityInfo.packageName }
+                .toSet()
+                .filter { it != context.packageName }
+                .mapNotNull { pkg ->
+                    runCatching {
+                        val appInfo = pm.getApplicationInfo(pkg, 0)
+                        InstalledAppInfo(
+                            packageName = pkg,
+                            displayName = pm.getApplicationLabel(appInfo).toString(),
+                            isSuggested = pkg in DistractingApp.SUGGESTED_PACKAGES
+                        )
+                    }.getOrNull()
                 }
                 .sortedWith(compareByDescending<InstalledAppInfo> { it.isSuggested }.thenBy { it.displayName })
 

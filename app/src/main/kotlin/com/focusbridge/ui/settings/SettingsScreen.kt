@@ -24,9 +24,12 @@ fun SettingsScreen(
     onEditGoal: () -> Unit,
     onEditApps: () -> Unit,
     onEditNextActions: (Long) -> Unit,
+    onEditLimitMode: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val goal by viewModel.activeGoal.collectAsState()
+    val isGlobalMode by viewModel.isGlobalLimitMode.collectAsState()
+    val globalLimitMs by viewModel.globalLimitMs.collectAsState()
     val context = LocalContext.current
 
     Scaffold(
@@ -61,6 +64,17 @@ fun SettingsScreen(
             SettingsRow(
                 title = "Manage apps & limits",
                 onClick = onEditApps
+            )
+
+            Spacer(Modifier.height(12.dp))
+            SectionLabel("Limit Mode")
+            SettingsRow(
+                title = "Limit enforcement",
+                subtitle = if (isGlobalMode)
+                    "Global: ${(globalLimitMs / 60_000).toInt()} min combined"
+                else
+                    "Per-app: individual limits",
+                onClick = onEditLimitMode
             )
 
             Spacer(Modifier.height(12.dp))

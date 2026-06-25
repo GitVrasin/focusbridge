@@ -8,10 +8,12 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.focusbridge.ui.dashboard.DashboardScreen
 import com.focusbridge.ui.onboarding.OnboardingScreen
+import com.focusbridge.ui.settings.AddAppsScreen
 import com.focusbridge.ui.settings.DailySummaryScreen
 import com.focusbridge.ui.settings.EditAppsScreen
 import com.focusbridge.ui.settings.EditGoalScreen
 import com.focusbridge.ui.settings.EditNextActionsScreen
+import com.focusbridge.ui.settings.LimitModeScreen
 import com.focusbridge.ui.settings.SettingsScreen
 
 @Composable
@@ -49,7 +51,8 @@ fun AppNavHost(
                 onEditApps = { navController.navigate(Screen.EditApps.route) },
                 onEditNextActions = { goalId ->
                     navController.navigate(Screen.EditNextActions.route(goalId))
-                }
+                },
+                onEditLimitMode = { navController.navigate(Screen.LimitMode.route) }
             )
         }
 
@@ -58,7 +61,18 @@ fun AppNavHost(
         }
 
         composable(Screen.EditApps.route) {
-            EditAppsScreen(onBack = { navController.popBackStack() })
+            EditAppsScreen(
+                onBack = { navController.popBackStack() },
+                onAddApps = { navController.navigate(Screen.AddApps.route) }
+            )
+        }
+
+        composable(Screen.AddApps.route) {
+            AddAppsScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Screen.LimitMode.route) {
+            LimitModeScreen(onBack = { navController.popBackStack() })
         }
 
         composable(

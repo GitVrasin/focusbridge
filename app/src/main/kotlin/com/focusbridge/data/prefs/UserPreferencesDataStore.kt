@@ -29,6 +29,16 @@ class UserPreferencesDataStore @Inject constructor(
         prefs[Keys.LAST_SERVICE_PING_MS] ?: 0L
     }
 
+    // MODE A = false (per-app), MODE B = true (global combined limit)
+    val isGlobalLimitMode: Flow<Boolean> = store.data.map { prefs ->
+        prefs[Keys.GLOBAL_LIMIT_MODE] ?: false
+    }
+
+    // Combined daily limit used when isGlobalLimitMode = true
+    val globalLimitMs: Flow<Long> = store.data.map { prefs ->
+        prefs[Keys.GLOBAL_LIMIT_MS] ?: (30 * 60 * 1000L) // default 30 min
+    }
+
     suspend fun setOnboardingComplete(complete: Boolean) {
         store.edit { it[Keys.ONBOARDING_COMPLETE] = complete }
     }
@@ -37,8 +47,18 @@ class UserPreferencesDataStore @Inject constructor(
         store.edit { it[Keys.LAST_SERVICE_PING_MS] = System.currentTimeMillis() }
     }
 
+    suspend fun setGlobalLimitMode(enabled: Boolean) {
+        store.edit { it[Keys.GLOBAL_LIMIT_MODE] = enabled }
+    }
+
+    suspend fun setGlobalLimitMs(limitMs: Long) {
+        store.edit { it[Keys.GLOBAL_LIMIT_MS] = limitMs }
+    }
+
     private object Keys {
         val ONBOARDING_COMPLETE = booleanPreferencesKey("onboarding_complete")
         val LAST_SERVICE_PING_MS = longPreferencesKey("last_service_ping_ms")
+        val GLOBAL_LIMIT_MODE = booleanPreferencesKey("global_limit_mode")
+        val GLOBAL_LIMIT_MS = longPreferencesKey("global_limit_ms")
     }
 }

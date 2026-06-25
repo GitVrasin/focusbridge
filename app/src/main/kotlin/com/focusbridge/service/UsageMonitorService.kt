@@ -40,8 +40,8 @@ class UsageMonitorService : LifecycleService() {
     @Inject lateinit var notificationHelper: ServiceNotificationHelper
     @Inject lateinit var userPrefs: UserPreferencesDataStore
 
-    // In-memory cooldown guard: last trigger timestamp per package
-    // Populated from DB on start, then updated in memory to avoid DB hit on every 2s tick
+    // In-memory cooldown guard: last trigger timestamp per package.
+    // Key GLOBAL_KEY is used when in global limit mode.
     private val lastTriggerCache = mutableMapOf<String, Long>()
 
     private var isMonitoring = false
@@ -50,8 +50,11 @@ class UsageMonitorService : LifecycleService() {
     companion object {
         private const val TAG = "FocusBridge.Monitor"
         private const val POLL_INTERVAL_MS = 2_000L
-        private const val HEARTBEAT_INTERVAL_MS = 5 * 60 * 1000L  // 5 minutes
+        private const val HEARTBEAT_INTERVAL_MS = 5 * 60 * 1000L
         private const val DATA_RETENTION_DAYS = 30
+
+        // Synthetic key used for global-mode cooldown tracking
+        const val GLOBAL_KEY = "__global__"
 
         fun startIntent(context: Context) = Intent(context, UsageMonitorService::class.java)
 
@@ -99,7 +102,6 @@ class UsageMonitorService : LifecycleService() {
         isMonitoring = true
 
         lifecycleScope.launch {
-            // Check onboarding gate
             val onboardingComplete = userPrefs.isOnboardingComplete.first()
             if (!onboardingComplete) {
                 Log.d(TAG, "Onboarding not complete — stopping service")
@@ -107,13 +109,15 @@ class UsageMonitorService : LifecycleService() {
                 return@launch
             }
 
-            // Load initial cooldown state from DB to seed the in-memory cache
+            // Seed in-memory cooldown cache from DB for per-app triggers
             appConfigRepository.getActiveApps().forEach { app ->
                 lastTriggerCache[app.packageName] =
                     interventionRepository.getLastTriggerTime(app.packageName)
             }
+            // Also seed global key
+            lastTriggerCache[GLOBAL_KEY] =
+                interventionRepository.getLastTriggerTime(GLOBAL_KEY)
 
-            // Purge old usage records (keep 30 days)
             val cutoffDay = LocalDate.now().toEpochDay().toInt() - DATA_RETENTION_DAYS
             usageRepository.deleteOlderThan(cutoffDay)
 
@@ -123,14 +127,12 @@ class UsageMonitorService : LifecycleService() {
                 val now = System.currentTimeMillis()
                 val today = LocalDate.now().toEpochDay().toInt()
 
-                // Day rollover: reset cooldown cache and run retention sweep
                 if (today != lastTrackedDay) {
                     lastTriggerCache.clear()
                     usageRepository.deleteOlderThan(today - DATA_RETENTION_DAYS)
                     lastTrackedDay = today
                 }
 
-                // Record service liveness for health monitoring
                 userPrefs.recordServicePing()
 
                 if (!usageStatsWrapper.hasPermission()) {
@@ -141,11 +143,23 @@ class UsageMonitorService : LifecycleService() {
 
                 val todayStartMs = usageStatsWrapper.getTodayStartMs()
                 val activeApps = appConfigRepository.getActiveApps()
+                val isGlobalMode = userPrefs.isGlobalLimitMode.first()
 
-                for (app in activeApps) {
-                    val usageMs = usageStatsWrapper.queryTotalTimeMs(app.packageName, todayStartMs, now)
-                    usageRepository.upsertRecord(app.packageName, today, usageMs)
-                    checkAndTrigger(app, usageMs, now)
+                if (isGlobalMode) {
+                    val globalLimitMs = userPrefs.globalLimitMs.first()
+                    var totalUsageMs = 0L
+                    for (app in activeApps) {
+                        val usageMs = usageStatsWrapper.queryTotalTimeMs(app.packageName, todayStartMs, now)
+                        usageRepository.upsertRecord(app.packageName, today, usageMs)
+                        totalUsageMs += usageMs
+                    }
+                    checkAndTriggerGlobal(activeApps, totalUsageMs, globalLimitMs, now)
+                } else {
+                    for (app in activeApps) {
+                        val usageMs = usageStatsWrapper.queryTotalTimeMs(app.packageName, todayStartMs, now)
+                        usageRepository.upsertRecord(app.packageName, today, usageMs)
+                        checkAndTrigger(app, usageMs, now)
+                    }
                 }
 
                 delay(POLL_INTERVAL_MS)
@@ -153,6 +167,7 @@ class UsageMonitorService : LifecycleService() {
         }
     }
 
+    // Per-app mode: checks one app and fires intervention if limit + cooldown both exceeded.
     private suspend fun checkAndTrigger(app: DistractingApp, usageMs: Long, nowMs: Long) {
         val lastTrigger = lastTriggerCache[app.packageName] ?: 0L
         checkThresholdBreachUseCase.execute(app, usageMs, lastTrigger, nowMs)
@@ -161,13 +176,44 @@ class UsageMonitorService : LifecycleService() {
         val nextAction = getNextActionUseCase()
         val eventId = recordInterventionUseCase.recordTriggered(app.packageName, usageMs)
 
-        // Update in-memory cache immediately to prevent re-trigger in next tick
         lastTriggerCache[app.packageName] = nowMs
-
         acquireWakeLockForLaunch()
         interventionLauncher.trigger(app, usageMs, nextAction, eventId)
 
         Log.d(TAG, "Intervention triggered for ${app.packageName} at ${usageMs}ms usage")
+    }
+
+    // Global mode: fires a single intervention when combined usage across all apps exceeds the limit.
+    private suspend fun checkAndTriggerGlobal(
+        activeApps: List<DistractingApp>,
+        totalUsageMs: Long,
+        globalLimitMs: Long,
+        nowMs: Long
+    ) {
+        val lastTrigger = lastTriggerCache[GLOBAL_KEY] ?: 0L
+        val breached = checkThresholdBreachUseCase.executeGlobal(
+            totalUsageMs, globalLimitMs, lastTrigger, nowMs
+        )
+        if (!breached) return
+
+        // Build a human-readable combined name (up to 3 apps)
+        val appNames = activeApps.take(3).joinToString(" + ") { it.displayName }
+        val displayName = if (activeApps.size > 3) "$appNames + ${activeApps.size - 3} more" else appNames
+
+        val virtualApp = DistractingApp(
+            packageName = GLOBAL_KEY,
+            displayName = displayName,
+            dailyLimitMs = globalLimitMs,
+            cooldownMs = DistractingApp.DEFAULT_COOLDOWN_MS
+        )
+
+        val nextAction = getNextActionUseCase()
+        val eventId = recordInterventionUseCase.recordTriggered(GLOBAL_KEY, totalUsageMs)
+        lastTriggerCache[GLOBAL_KEY] = nowMs
+        acquireWakeLockForLaunch()
+        interventionLauncher.trigger(virtualApp, totalUsageMs, nextAction, eventId)
+
+        Log.d(TAG, "Global intervention triggered: ${totalUsageMs}ms / ${globalLimitMs}ms across $appNames")
     }
 
     private fun acquireWakeLockForLaunch() {
@@ -177,7 +223,7 @@ class UsageMonitorService : LifecycleService() {
             PowerManager.PARTIAL_WAKE_LOCK,
             "FocusBridge:InterventionLaunch"
         ).also {
-            it.acquire(5_000L) // Release after 5s — enough to launch Activity
+            it.acquire(5_000L)
         }
     }
 

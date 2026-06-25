@@ -11,8 +11,7 @@ data class BreachResult(
 class CheckThresholdBreachUseCase @Inject constructor() {
 
     /**
-     * Returns a BreachResult if the app has exceeded its daily limit AND the cooldown
-     * period since the last intervention has passed. Returns null if no breach.
+     * Per-app mode: returns BreachResult if this app exceeded its daily limit AND cooldown passed.
      */
     fun execute(
         app: DistractingApp,
@@ -21,7 +20,24 @@ class CheckThresholdBreachUseCase @Inject constructor() {
         nowMs: Long
     ): BreachResult? {
         val limitExceeded = currentUsageMs >= app.dailyLimitMs
-        val cooldownPassed = (nowMs - lastInterventionMs) >= app.cooldownMs
+        // Strictly greater than: exactly-at-boundary does not re-trigger (avoids same-tick double-fire)
+        val cooldownPassed = (nowMs - lastInterventionMs) > app.cooldownMs
         return if (limitExceeded && cooldownPassed) BreachResult(app, currentUsageMs) else null
+    }
+
+    /**
+     * Global mode: returns true if combined usage across all apps exceeded the global limit AND
+     * the cooldown since the last global intervention has passed.
+     */
+    fun executeGlobal(
+        totalUsageMs: Long,
+        globalLimitMs: Long,
+        lastInterventionMs: Long,
+        nowMs: Long,
+        cooldownMs: Long = DistractingApp.DEFAULT_COOLDOWN_MS
+    ): Boolean {
+        val limitExceeded = totalUsageMs >= globalLimitMs
+        val cooldownPassed = (nowMs - lastInterventionMs) > cooldownMs
+        return limitExceeded && cooldownPassed
     }
 }

@@ -33,13 +33,10 @@ fun InterventionScreen(viewModel: InterventionViewModel) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Spacer(Modifier.height(24.dp))
 
-                Text(
-                    "⏱",
-                    fontSize = 48.sp
-                )
+                Text("⏱", fontSize = 48.sp)
                 Spacer(Modifier.height(16.dp))
                 Text(
-                    "You've been on",
+                    if (state.isGlobalMode) "Combined screen time" else "You've been on",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -47,15 +44,12 @@ fun InterventionScreen(viewModel: InterventionViewModel) {
                     state.appDisplayName,
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
-                    color = OverLimitRed
+                    color = OverLimitRed,
+                    textAlign = TextAlign.Center
                 )
+                Spacer(Modifier.height(4.dp))
                 Text(
-                    "for $usageMinutes minutes today",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    "(limit: $limitMinutes min)",
+                    "$usageMinutes min today  ·  limit $limitMinutes min",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -89,29 +83,35 @@ fun InterventionScreen(viewModel: InterventionViewModel) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                // Primary: take action
                 if (state.nextActionLabel != null) {
                     Button(
                         onClick = viewModel::onTakeAction,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(60.dp),
+                            .height(68.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary
                         )
                     ) {
-                        Text(
-                            "▶  ${state.nextActionLabel}",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                "GO TO GOAL",
+                                style = MaterialTheme.typography.labelSmall,
+                                letterSpacing = 1.5.sp,
+                                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
+                            )
+                            Text(
+                                "▶  ${state.nextActionLabel}",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
 
                 Spacer(Modifier.height(16.dp))
 
-                // Secondary: extend
-                if (state.canExtend) {
+                if (!state.isGlobalMode && state.canExtend) {
                     TextButton(onClick = viewModel::onExtend) {
                         Text(
                             "Give me 5 more minutes",
@@ -119,13 +119,17 @@ fun InterventionScreen(viewModel: InterventionViewModel) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                } else {
+                } else if (!state.isGlobalMode) {
                     Text(
                         "No more extensions today",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(Modifier.height(8.dp))
+                    TextButton(onClick = viewModel::onDismiss) {
+                        Text("Dismiss", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                } else {
                     TextButton(onClick = viewModel::onDismiss) {
                         Text("Dismiss", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }

@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -19,6 +20,7 @@ import com.focusbridge.domain.model.DistractingApp
 @Composable
 fun EditAppsScreen(
     onBack: () -> Unit,
+    onAddApps: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val apps by viewModel.activeApps.collectAsState()
@@ -32,6 +34,13 @@ fun EditAppsScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
+            )
+        },
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = onAddApps,
+                icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                text = { Text("Add Apps") }
             )
         }
     ) { padding ->
@@ -54,13 +63,16 @@ fun EditAppsScreen(
                 item {
                     Spacer(Modifier.height(48.dp))
                     Text(
-                        "No apps added yet. Go back and complete onboarding or re-run setup.",
+                        "No apps added yet. Tap \"Add Apps\" to get started.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(16.dp)
                     )
                 }
             }
+
+            // Extra space so FAB doesn't overlap last item
+            item { Spacer(Modifier.height(80.dp)) }
         }
     }
 }

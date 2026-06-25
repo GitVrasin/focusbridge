@@ -10,7 +10,10 @@ data class NextAction(
 )
 
 enum class NextActionType {
-    URL,        // Open a URL in the browser or custom app
-    NOTES,      // Open the internal notes screen
-    CHECKLIST   // Open the internal checklist screen
+    URL,        // Generic URL → open in browser
+    YOUTUBE,    // YouTube video/playlist → YouTube app with browser fallback
+    SPOTIFY,    // Spotify track/playlist → Spotify app with browser fallback
+    APP_INTENT, // Launch a specific app by its package name
+    NOTES,      // Internal notes screen
+    CHECKLIST   // Internal checklist screen
 }

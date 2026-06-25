@@ -16,6 +16,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.focusbridge.domain.model.NextActionType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,7 +57,7 @@ fun EditNextActionsScreen(
         ) {
             item {
                 Text(
-                    "These are shown when an intervention triggers. The first action is shown by default.",
+                    "The first action is the \"Go to Goal\" destination shown during an intervention.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(vertical = 12.dp)
@@ -65,7 +66,9 @@ fun EditNextActionsScreen(
 
             items(actions, key = { it.id }) { action ->
                 Card(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
                     Row(
@@ -75,14 +78,18 @@ fun EditNextActionsScreen(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(action.label, style = MaterialTheme.typography.bodyLarge)
                             Text(
-                                action.target,
+                                "${action.type.name}  •  ${action.target}",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1
                             )
                         }
                         IconButton(onClick = { viewModel.deleteNextAction(action.id, goalId) }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = "Delete",
+                                tint = MaterialTheme.colorScheme.error
+                            )
                         }
                     }
                 }
@@ -93,8 +100,8 @@ fun EditNextActionsScreen(
     if (showAddDialog) {
         AddNextActionDialog(
             onDismiss = { showAddDialog = false },
-            onAdd = { label, url ->
-                viewModel.addNextAction(goalId, label, url)
+            onAdd = { label, target, type ->
+                viewModel.addNextAction(goalId, label, target, type)
                 showAddDialog = false
             }
         )
@@ -104,10 +111,18 @@ fun EditNextActionsScreen(
 @Composable
 private fun AddNextActionDialog(
     onDismiss: () -> Unit,
-    onAdd: (String, String) -> Unit
+    onAdd: (String, String, NextActionType) -> Unit
 ) {
     var label by remember { mutableStateOf("") }
-    var url by remember { mutableStateOf("") }
+    var target by remember { mutableStateOf("") }
+    var selectedType by remember { mutableStateOf(NextActionType.URL) }
+
+    val typeOptions = listOf(
+        NextActionType.URL to "URL",
+        NextActionType.YOUTUBE to "YouTube",
+        NextActionType.SPOTIFY to "Spotify",
+        NextActionType.APP_INTENT to "App"
+    )
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -117,26 +132,59 @@ private fun AddNextActionDialog(
                 OutlinedTextField(
                     value = label,
                     onValueChange = { label = it },
-                    label = { Text("Label") },
+                    label = { Text("Label (e.g. My Udemy Course)") },
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                    modifier = Modifier.fillMaxWidth()
                 )
+
+                Text(
+                    "Type",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    typeOptions.forEach { (type, chipLabel) ->
+                        FilterChip(
+                            selected = selectedType == type,
+                            onClick = { selectedType = type },
+                            label = {
+                                Text(chipLabel, style = MaterialTheme.typography.labelSmall)
+                            }
+                        )
+                    }
+                }
+
                 OutlinedTextField(
-                    value = url,
-                    onValueChange = { url = it },
-                    label = { Text("URL") },
+                    value = target,
+                    onValueChange = { target = it },
+                    label = {
+                        Text(
+                            when (selectedType) {
+                                NextActionType.APP_INTENT -> "Package name (e.g. com.spotify.music)"
+                                NextActionType.YOUTUBE -> "YouTube URL"
+                                NextActionType.SPOTIFY -> "Spotify URL"
+                                else -> "URL (https://...)"
+                            }
+                        )
+                    },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Uri,
+                        keyboardType = if (selectedType == NextActionType.APP_INTENT)
+                            KeyboardType.Text else KeyboardType.Uri,
                         imeAction = ImeAction.Done
-                    )
+                    ),
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         },
         confirmButton = {
             TextButton(
-                onClick = { onAdd(label, url) },
-                enabled = label.isNotBlank() && url.isNotBlank()
+                onClick = { onAdd(label, target, selectedType) },
+                enabled = label.isNotBlank() && target.isNotBlank()
             ) { Text("Add") }
         },
         dismissButton = {

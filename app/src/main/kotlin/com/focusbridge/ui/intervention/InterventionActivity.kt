@@ -10,6 +10,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.lifecycle.lifecycleScope
+import com.focusbridge.domain.model.NextActionType
 import com.focusbridge.ui.theme.FocusBridgeTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -23,7 +24,6 @@ class InterventionActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // Read intent extras
         val packageName = intent.getStringExtra(EXTRA_PACKAGE_NAME) ?: ""
         val displayName = intent.getStringExtra(EXTRA_DISPLAY_NAME) ?: packageName
         val usageMs = intent.getLongExtra(EXTRA_USAGE_MS, 0L)
@@ -46,20 +46,18 @@ class InterventionActivity : ComponentActivity() {
             eventId = eventId,
         )
 
-        // Intercept back press → treat as dismiss
         onBackPressedDispatcher.addCallback(
             this,
             object : OnBackPressedCallback(enabled = true) {
-            override fun handleOnBackPressed() {
-                viewModel.onDismiss()
-            }
-        })
+                override fun handleOnBackPressed() {
+                    viewModel.onDismiss()
+                }
+            })
 
-        // Consume effects
         lifecycleScope.launch {
             viewModel.effects.collect { effect ->
                 when (effect) {
-                    is InterventionEffect.OpenUrl -> openUrl(effect.url)
+                    is InterventionEffect.OpenAction -> openAction(effect.target, effect.type)
                     is InterventionEffect.Finish -> finish()
                 }
             }
@@ -72,11 +70,52 @@ class InterventionActivity : ComponentActivity() {
         }
     }
 
+    private fun openAction(target: String, type: String?) {
+        val actionType = type?.let { runCatching { NextActionType.valueOf(it) }.getOrNull() }
+            ?: NextActionType.URL
+        when (actionType) {
+            NextActionType.YOUTUBE -> openYouTube(target)
+            NextActionType.SPOTIFY -> openSpotify(target)
+            NextActionType.APP_INTENT -> openApp(target)
+            else -> openUrl(target)
+        }
+    }
+
     private fun openUrl(url: String) {
         runCatching {
             startActivity(Intent(Intent.ACTION_VIEW, url.toUri()).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             })
+        }
+    }
+
+    private fun openYouTube(url: String) {
+        // Try native YouTube deep-link first (vnd.youtube:<videoId>)
+        val videoId = Regex("""(?:v=|youtu\.be/|embed/|shorts/)([a-zA-Z0-9_-]{11})""")
+            .find(url)?.groupValues?.get(1)
+        if (videoId != null) {
+            val ytIntent = Intent(Intent.ACTION_VIEW, "vnd.youtube:$videoId".toUri())
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            if (ytIntent.resolveActivity(packageManager) != null) {
+                runCatching { startActivity(ytIntent) }.onSuccess { return }
+            }
+        }
+        openUrl(url)
+    }
+
+    private fun openSpotify(url: String) {
+        runCatching {
+            startActivity(Intent(Intent.ACTION_VIEW, url.toUri()).apply {
+                setPackage("com.spotify.music")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            })
+        }.onFailure { openUrl(url) }
+    }
+
+    private fun openApp(packageName: String) {
+        runCatching {
+            val launchIntent = packageManager.getLaunchIntentForPackage(packageName) ?: return
+            startActivity(launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }
     }
 

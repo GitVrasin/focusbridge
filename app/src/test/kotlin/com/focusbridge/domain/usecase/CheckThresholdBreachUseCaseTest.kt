@@ -16,7 +16,8 @@ class CheckThresholdBreachUseCaseTest {
         cooldownMs = 30 * 60 * 1000L      // 30 minutes
     )
 
-    private val now = 1_000_000L
+    // 2 hours in ms — comfortably larger than testApp.cooldownMs (30 min) so "no prior trigger" tests pass
+    private val now = 7_200_000L
 
     @Before
     fun setUp() {
