@@ -1,0 +1,23 @@
+# Gradle
+.gradle/
+build/
+*.class
+
+# Android Studio
+.idea/
+*.iml
+*.iws
+local.properties
+captures/
+
+# Keystore (never commit)
+*.jks
+*.keystore
+
+# Secrets
+*.env
+google-services.json
+
+# OS
+.DS_Store
+Thumbs.db
