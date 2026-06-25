@@ -3,12 +3,12 @@ package com.focusbridge.ui.intervention
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import androidx.core.net.toUri
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.core.net.toUri
 import androidx.lifecycle.lifecycleScope
 import com.focusbridge.domain.model.NextActionType
 import com.focusbridge.ui.theme.FocusBridgeTheme
@@ -33,6 +33,7 @@ class InterventionActivity : ComponentActivity() {
         val nextActionTarget = intent.getStringExtra(EXTRA_NEXT_ACTION_TARGET)
         val nextActionType = intent.getStringExtra(EXTRA_NEXT_ACTION_TYPE)
         val eventId = intent.getLongExtra(EXTRA_EVENT_ID, -1L)
+        val sessionId = intent.getLongExtra(EXTRA_SESSION_ID, 0L)
 
         viewModel.init(
             packageName = packageName,
@@ -44,13 +45,14 @@ class InterventionActivity : ComponentActivity() {
             nextActionTarget = nextActionTarget,
             nextActionType = nextActionType,
             eventId = eventId,
+            sessionId = sessionId,
         )
 
         onBackPressedDispatcher.addCallback(
             this,
             object : OnBackPressedCallback(enabled = true) {
                 override fun handleOnBackPressed() {
-                    viewModel.onDismiss()
+                    viewModel.onContinue()
                 }
             })
 
@@ -90,7 +92,6 @@ class InterventionActivity : ComponentActivity() {
     }
 
     private fun openYouTube(url: String) {
-        // Try native YouTube deep-link first (vnd.youtube:<videoId>)
         val videoId = Regex("""(?:v=|youtu\.be/|embed/|shorts/)([a-zA-Z0-9_-]{11})""")
             .find(url)?.groupValues?.get(1)
         if (videoId != null) {
@@ -129,6 +130,7 @@ class InterventionActivity : ComponentActivity() {
         private const val EXTRA_NEXT_ACTION_TARGET = "next_action_target"
         private const val EXTRA_NEXT_ACTION_TYPE = "next_action_type"
         private const val EXTRA_EVENT_ID = "event_id"
+        private const val EXTRA_SESSION_ID = "session_id"
 
         fun createIntent(
             context: Context,
@@ -140,7 +142,8 @@ class InterventionActivity : ComponentActivity() {
             nextActionLabel: String?,
             nextActionTarget: String?,
             nextActionType: String?,
-            eventId: Long
+            eventId: Long,
+            sessionId: Long = 0L
         ) = Intent(context, InterventionActivity::class.java).apply {
             putExtra(EXTRA_PACKAGE_NAME, packageName)
             putExtra(EXTRA_DISPLAY_NAME, displayName)
@@ -151,6 +154,7 @@ class InterventionActivity : ComponentActivity() {
             nextActionTarget?.let { putExtra(EXTRA_NEXT_ACTION_TARGET, it) }
             nextActionType?.let { putExtra(EXTRA_NEXT_ACTION_TYPE, it) }
             putExtra(EXTRA_EVENT_ID, eventId)
+            putExtra(EXTRA_SESSION_ID, sessionId)
         }
     }
 }

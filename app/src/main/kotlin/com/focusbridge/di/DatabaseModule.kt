@@ -3,6 +3,7 @@ package com.focusbridge.di
 import android.content.Context
 import androidx.room.Room
 import com.focusbridge.data.db.AppDatabase
+import com.focusbridge.data.db.dao.AppSessionDao
 import com.focusbridge.data.db.dao.DistractingAppDao
 import com.focusbridge.data.db.dao.GoalDao
 import com.focusbridge.data.db.dao.InterventionEventDao
@@ -22,10 +23,12 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, AppDatabase.DATABASE_NAME)
+            .addMigrations(AppDatabase.MIGRATION_1_2)
             .build()
 
     @Provides fun provideGoalDao(db: AppDatabase): GoalDao = db.goalDao()
     @Provides fun provideAppDao(db: AppDatabase): DistractingAppDao = db.distractingAppDao()
     @Provides fun provideUsageDao(db: AppDatabase): UsageRecordDao = db.usageRecordDao()
     @Provides fun provideInterventionDao(db: AppDatabase): InterventionEventDao = db.interventionEventDao()
+    @Provides fun provideAppSessionDao(db: AppDatabase): AppSessionDao = db.appSessionDao()
 }

@@ -5,6 +5,8 @@ data class InterventionEvent(
     val packageName: String,
     val triggeredAt: Long,
     val usageAtTriggerMs: Long,
+    val sessionId: Long = 0,
+    val intentType: String? = null,
     val nextActionId: Long? = null,
     val wasAccepted: Boolean? = null, // null = dismissed without choosing
     val acceptedAt: Long? = null

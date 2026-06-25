@@ -8,6 +8,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.focusbridge.ui.dashboard.DashboardScreen
 import com.focusbridge.ui.onboarding.OnboardingScreen
+import com.focusbridge.ui.insights.InsightsScreen
 import com.focusbridge.ui.settings.AddAppsScreen
 import com.focusbridge.ui.settings.DailySummaryScreen
 import com.focusbridge.ui.settings.EditAppsScreen
@@ -52,8 +53,13 @@ fun AppNavHost(
                 onEditNextActions = { goalId ->
                     navController.navigate(Screen.EditNextActions.route(goalId))
                 },
-                onEditLimitMode = { navController.navigate(Screen.LimitMode.route) }
+                onEditLimitMode = { navController.navigate(Screen.LimitMode.route) },
+                onOpenInsights = { navController.navigate(Screen.Insights.route) }
             )
+        }
+
+        composable(Screen.Insights.route) {
+            InsightsScreen(onBack = { navController.popBackStack() })
         }
 
         composable(Screen.EditGoal.route) {

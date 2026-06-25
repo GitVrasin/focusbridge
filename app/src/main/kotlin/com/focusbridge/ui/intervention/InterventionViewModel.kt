@@ -2,8 +2,9 @@ package com.focusbridge.ui.intervention
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.focusbridge.data.prefs.UserPreferencesDataStore
+import com.focusbridge.domain.model.SessionIntent
 import com.focusbridge.domain.repository.GoalRepository
-import com.focusbridge.domain.usecase.ExtendLimitUseCase
 import com.focusbridge.domain.usecase.RecordInterventionUseCase
 import com.focusbridge.service.UsageMonitorService
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -17,20 +18,22 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+enum class InterventionPhase { INTENT_CAPTURE, INTERVENTION }
+
 data class InterventionUiState(
+    val phase: InterventionPhase = InterventionPhase.INTENT_CAPTURE,
     val packageName: String = "",
     val appDisplayName: String = "",
-    val usageMs: Long = 0L,
+    val sessionDurationMs: Long = 0L,
     val limitMs: Long = 0L,
+    val selectedIntent: SessionIntent? = null,
     val nextActionId: Long? = null,
     val nextActionLabel: String? = null,
     val nextActionTarget: String? = null,
     val nextActionType: String? = null,
     val eventId: Long = -1L,
+    val sessionId: Long = 0L,
     val goalTitle: String = "",
-    val isLoading: Boolean = false,
-    val canExtend: Boolean = true,
-    // Global mode has no per-app limit to extend against, hide the button
     val isGlobalMode: Boolean = false
 )
 
@@ -42,8 +45,8 @@ sealed interface InterventionEffect {
 @HiltViewModel
 class InterventionViewModel @Inject constructor(
     private val recordInterventionUseCase: RecordInterventionUseCase,
-    private val extendLimitUseCase: ExtendLimitUseCase,
-    private val goalRepository: GoalRepository
+    private val goalRepository: GoalRepository,
+    private val userPrefs: UserPreferencesDataStore
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(InterventionUiState())
@@ -61,23 +64,25 @@ class InterventionViewModel @Inject constructor(
         nextActionLabel: String?,
         nextActionTarget: String?,
         nextActionType: String?,
-        eventId: Long
+        eventId: Long,
+        sessionId: Long = 0L
     ) {
         val isGlobal = packageName == UsageMonitorService.GLOBAL_KEY
         _uiState.update {
             it.copy(
                 packageName = packageName,
                 appDisplayName = displayName,
-                usageMs = usageMs,
+                sessionDurationMs = usageMs,
                 limitMs = limitMs,
                 nextActionId = nextActionId,
                 nextActionLabel = nextActionLabel,
                 nextActionTarget = nextActionTarget,
                 nextActionType = nextActionType,
                 eventId = eventId,
+                sessionId = sessionId,
                 isGlobalMode = isGlobal,
-                // Extension requires a DB-backed per-app limit; not available in global mode
-                canExtend = !isGlobal
+                // Global mode skips intent capture — it tracks combined time, not a single session open.
+                phase = if (isGlobal) InterventionPhase.INTERVENTION else InterventionPhase.INTENT_CAPTURE
             )
         }
         viewModelScope.launch {
@@ -86,7 +91,20 @@ class InterventionViewModel @Inject constructor(
         }
     }
 
-    fun onTakeAction() {
+    fun onIntentSelected(intent: SessionIntent) {
+        viewModelScope.launch {
+            val state = _uiState.value
+            recordInterventionUseCase.recordIntentSelected(state.eventId, state.sessionId, intent.name)
+            _uiState.update {
+                it.copy(
+                    selectedIntent = intent,
+                    phase = InterventionPhase.INTERVENTION
+                )
+            }
+        }
+    }
+
+    fun onGoToGoal() {
         viewModelScope.launch {
             val state = _uiState.value
             state.nextActionId?.let { actionId ->
@@ -99,19 +117,22 @@ class InterventionViewModel @Inject constructor(
         }
     }
 
-    fun onExtend() {
+    fun onContinue() {
         viewModelScope.launch {
-            val state = _uiState.value
-            recordInterventionUseCase.recordExtension(state.packageName, state.usageMs)
-            val result = extendLimitUseCase(state.packageName)
-            val canExtend = result !is ExtendLimitUseCase.ExtendResult.LimitReached
-            _uiState.update { it.copy(canExtend = canExtend) }
+            val eventId = _uiState.value.eventId
+            if (eventId >= 0) {
+                recordInterventionUseCase.recordDismissed(eventId)
+            }
             _effects.emit(InterventionEffect.Finish)
         }
     }
 
-    fun onDismiss() {
+    // Back press on intent capture screen also counts as continue (user goes back to the app).
+    fun onDismiss() = onContinue()
+
+    fun onMuteForToday() {
         viewModelScope.launch {
+            userPrefs.muteForToday()
             val eventId = _uiState.value.eventId
             if (eventId >= 0) {
                 recordInterventionUseCase.recordDismissed(eventId)

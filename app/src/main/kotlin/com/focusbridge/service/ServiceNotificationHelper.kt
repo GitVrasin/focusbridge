@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.graphics.drawable.Icon
 import com.focusbridge.R
 import com.focusbridge.ui.MainActivity
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -45,6 +46,8 @@ class ServiceNotificationHelper @Inject constructor(
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 description = "Alerts when you exceed your app time limit"
+                // Prevent OS from batching or delaying these alerts
+                setBypassDnd(true)
             }
         )
     }
@@ -69,17 +72,37 @@ class ServiceNotificationHelper @Inject constructor(
     fun buildInterventionNotification(
         appName: String,
         usageMinutes: Int,
-        limitMinutes: Int,
+        goalText: String?,
+        actionLabel: String?,
+        actionPendingIntent: PendingIntent?,
         fullScreenIntent: PendingIntent
     ): Notification {
-        return Notification.Builder(context, INTERVENTION_CHANNEL_ID)
+        val bodyText = if (!goalText.isNullOrBlank()) {
+            "You've been on $appName for ${usageMinutes}min\n\nYour goal: \"$goalText\""
+        } else {
+            "You've been on $appName for ${usageMinutes}min"
+        }
+
+        val builder = Notification.Builder(context, INTERVENTION_CHANNEL_ID)
             .setContentTitle("Time limit reached: $appName")
-            .setContentText("You've used $appName for $usageMinutes min (limit: $limitMinutes min)")
+            .setContentText(bodyText)
+            .setStyle(Notification.BigTextStyle().bigText(bodyText))
             .setSmallIcon(R.drawable.ic_notification)
             .setFullScreenIntent(fullScreenIntent, true)
             .setAutoCancel(true)
-            .setPriority(Notification.PRIORITY_HIGH)
-            .build()
+            .setPriority(Notification.PRIORITY_MAX)
+
+        if (actionLabel != null && actionPendingIntent != null) {
+            builder.addAction(
+                Notification.Action.Builder(
+                    Icon.createWithResource(context, R.drawable.ic_notification),
+                    "Return to Goal: $actionLabel",
+                    actionPendingIntent
+                ).build()
+            )
+        }
+
+        return builder.build()
     }
 
     fun cancelIntervention() {

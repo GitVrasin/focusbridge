@@ -25,6 +25,7 @@ fun SettingsScreen(
     onEditApps: () -> Unit,
     onEditNextActions: (Long) -> Unit,
     onEditLimitMode: () -> Unit,
+    onOpenInsights: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val goal by viewModel.activeGoal.collectAsState()
@@ -86,6 +87,14 @@ fun SettingsScreen(
                     goal?.id?.let { onEditNextActions(it) }
                 },
                 enabled = goal != null
+            )
+
+            Spacer(Modifier.height(12.dp))
+            SectionLabel("Insights")
+            SettingsRow(
+                title = "Weekly Insights",
+                subtitle = "Time spent, intent patterns, goal rate",
+                onClick = onOpenInsights
             )
 
             Spacer(Modifier.height(12.dp))

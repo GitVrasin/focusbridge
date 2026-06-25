@@ -10,6 +10,8 @@ import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import java.time.LocalDate
+import java.time.ZoneId
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -39,6 +41,11 @@ class UserPreferencesDataStore @Inject constructor(
         prefs[Keys.GLOBAL_LIMIT_MS] ?: (30 * 60 * 1000L) // default 30 min
     }
 
+    // Epoch-ms timestamp until which all interventions are silenced (0 = not muted)
+    val muteUntilMs: Flow<Long> = store.data.map { prefs ->
+        prefs[Keys.MUTE_UNTIL_MS] ?: 0L
+    }
+
     suspend fun setOnboardingComplete(complete: Boolean) {
         store.edit { it[Keys.ONBOARDING_COMPLETE] = complete }
     }
@@ -55,10 +62,20 @@ class UserPreferencesDataStore @Inject constructor(
         store.edit { it[Keys.GLOBAL_LIMIT_MS] = limitMs }
     }
 
+    /** Silences all interventions until midnight tonight. Resets automatically (compared at runtime). */
+    suspend fun muteForToday() {
+        val midnight = LocalDate.now().plusDays(1)
+            .atStartOfDay(ZoneId.systemDefault())
+            .toInstant()
+            .toEpochMilli()
+        store.edit { it[Keys.MUTE_UNTIL_MS] = midnight }
+    }
+
     private object Keys {
         val ONBOARDING_COMPLETE = booleanPreferencesKey("onboarding_complete")
         val LAST_SERVICE_PING_MS = longPreferencesKey("last_service_ping_ms")
         val GLOBAL_LIMIT_MODE = booleanPreferencesKey("global_limit_mode")
         val GLOBAL_LIMIT_MS = longPreferencesKey("global_limit_ms")
+        val MUTE_UNTIL_MS = longPreferencesKey("mute_until_ms")
     }
 }

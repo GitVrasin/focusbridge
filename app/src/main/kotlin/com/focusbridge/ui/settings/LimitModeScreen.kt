@@ -19,7 +19,7 @@ fun LimitModeScreen(
 ) {
     val isGlobalMode by viewModel.isGlobalLimitMode.collectAsState()
     val globalLimitMs by viewModel.globalLimitMs.collectAsState()
-    val globalLimitMin = (globalLimitMs / 60_000).toInt().coerceAtLeast(5)
+    val globalLimitMin = (globalLimitMs / 60_000).toInt().coerceAtLeast(1)
 
     Scaffold(
         topBar = {
@@ -73,7 +73,7 @@ fun LimitModeScreen(
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            "Each app has its own daily limit.\nInstagram = 5 min, YouTube = 10 min, etc.",
+                            "Each app triggers an intervention after its own session threshold.\nInstagram = 5 min, YouTube = 10 min, etc.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -142,9 +142,10 @@ fun LimitModeScreen(
                         }
                         Slider(
                             value = globalLimitMin.toFloat(),
-                            onValueChange = { viewModel.setGlobalLimitMs(it.toLong() * 60_000L) },
-                            valueRange = 5f..180f,
-                            steps = 34,
+                            onValueChange = {
+                                viewModel.setGlobalLimitMs(it.toLong().coerceAtLeast(1L) * 60_000L)
+                            },
+                            valueRange = 1f..180f,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
@@ -153,7 +154,7 @@ fun LimitModeScreen(
 
             if (!isGlobalMode) {
                 Text(
-                    "Manage individual app limits via Settings → Manage apps & limits.",
+                    "Set per-session thresholds (2–120 min) via Settings → Manage apps & limits.\nInterventions fire once per session — no repeat interruptions.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 4.dp)

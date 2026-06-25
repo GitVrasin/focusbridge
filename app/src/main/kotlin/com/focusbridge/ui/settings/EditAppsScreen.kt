@@ -83,7 +83,7 @@ private fun AppLimitRow(
     onLimitChange: (Int) -> Unit,
     onRemove: () -> Unit
 ) {
-    val currentMinutes = (app.dailyLimitMs / 60_000).toInt()
+    val currentMinutes = (app.dailyLimitMs / 60_000).toInt().coerceAtLeast(2)
 
     Column(Modifier.padding(vertical = 12.dp)) {
         Row(
@@ -94,7 +94,7 @@ private fun AppLimitRow(
             Column(modifier = Modifier.weight(1f)) {
                 Text(app.displayName, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
                 Text(
-                    app.packageName,
+                    "Session threshold · ${app.packageName}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -109,9 +109,8 @@ private fun AppLimitRow(
         ) {
             Slider(
                 value = currentMinutes.toFloat(),
-                onValueChange = { onLimitChange(it.toInt()) },
-                valueRange = 5f..120f,
-                steps = 22,
+                onValueChange = { onLimitChange(it.toInt().coerceAtLeast(2)) },
+                valueRange = 2f..120f,
                 modifier = Modifier.weight(1f)
             )
             Spacer(Modifier.width(8.dp))

@@ -9,7 +9,8 @@ data class DistractingApp(
     val cooldownMs: Long = DEFAULT_COOLDOWN_MS
 ) {
     companion object {
-        const val DEFAULT_COOLDOWN_MS = 5 * 60 * 1000L // 5 minutes — re-trigger interval after dismissal
+        // Retained for DB schema compatibility; triggering uses cycle-based reset, not a fixed cooldown.
+        const val DEFAULT_COOLDOWN_MS = 0L
 
         val SUGGESTED_PACKAGES = listOf(
             "com.instagram.android",

@@ -12,12 +12,9 @@ class CheckThresholdBreachUseCaseTest {
     private val testApp = DistractingApp(
         packageName = "com.instagram.android",
         displayName = "Instagram",
-        dailyLimitMs = 15 * 60 * 1000L,  // 15 minutes
-        cooldownMs = 30 * 60 * 1000L      // 30 minutes
+        dailyLimitMs = 2 * 60 * 1000L,  // 2 minutes (minimum supported threshold)
+        cooldownMs = 0L                  // cooldown is obsolete; cycle-based tracking handles re-trigger
     )
-
-    // 2 hours in ms — comfortably larger than testApp.cooldownMs (30 min) so "no prior trigger" tests pass
-    private val now = 7_200_000L
 
     @Before
     fun setUp() {
@@ -25,60 +22,70 @@ class CheckThresholdBreachUseCaseTest {
     }
 
     @Test
-    fun `returns null when usage is below limit`() {
-        val result = useCase.execute(testApp, 14 * 60_000L, 0L, now)
+    fun `returns null when cycle usage is below limit`() {
+        val result = useCase.execute(testApp, testApp.dailyLimitMs - 1)
         assertNull(result)
     }
 
     @Test
-    fun `returns null when usage exactly equals limit minus 1ms`() {
-        val result = useCase.execute(testApp, testApp.dailyLimitMs - 1, 0L, now)
+    fun `returns null when cycle usage is zero`() {
+        val result = useCase.execute(testApp, 0L)
         assertNull(result)
     }
 
     @Test
-    fun `returns BreachResult when usage equals limit and cooldown passed`() {
-        val lastTrigger = now - testApp.cooldownMs - 1L
-        val result = useCase.execute(testApp, testApp.dailyLimitMs, lastTrigger, now)
+    fun `returns BreachResult when cycle usage exactly equals limit`() {
+        val result = useCase.execute(testApp, testApp.dailyLimitMs)
         assertNotNull(result)
         assertEquals(testApp, result!!.app)
         assertEquals(testApp.dailyLimitMs, result.currentUsageMs)
     }
 
     @Test
-    fun `returns BreachResult when usage exceeds limit and no prior trigger`() {
-        val result = useCase.execute(testApp, testApp.dailyLimitMs + 1000, 0L, now)
+    fun `returns BreachResult when cycle usage exceeds limit`() {
+        val result = useCase.execute(testApp, testApp.dailyLimitMs + 1000)
         assertNotNull(result)
+        assertEquals(testApp.dailyLimitMs + 1000, result!!.currentUsageMs)
     }
 
     @Test
-    fun `returns null when limit exceeded but cooldown not passed`() {
-        val lastTrigger = now - testApp.cooldownMs + 1L // 1ms before cooldown expires
-        val result = useCase.execute(testApp, testApp.dailyLimitMs + 1000, lastTrigger, now)
+    fun `returns BreachResult for large cycle usage values`() {
+        val hugeUsage = Long.MAX_VALUE / 2
+        val result = useCase.execute(testApp, hugeUsage)
+        assertNotNull(result)
+        assertEquals(hugeUsage, result!!.currentUsageMs)
+    }
+
+    @Test
+    fun `executeGlobal returns false when combined cycle usage is below limit`() {
+        val result = useCase.executeGlobal(totalCycleUsageMs = 5_000L, globalLimitMs = 10_000L)
+        assertFalse(result)
+    }
+
+    @Test
+    fun `executeGlobal returns true when combined cycle usage equals limit`() {
+        val result = useCase.executeGlobal(totalCycleUsageMs = 10_000L, globalLimitMs = 10_000L)
+        assertTrue(result)
+    }
+
+    @Test
+    fun `executeGlobal returns true when combined cycle usage exceeds limit`() {
+        val result = useCase.executeGlobal(totalCycleUsageMs = 15_000L, globalLimitMs = 10_000L)
+        assertTrue(result)
+    }
+
+    @Test
+    fun `cycle reset allows re-trigger immediately after reset`() {
+        // Simulate: trigger happened (caller reset cycle), next cycle usage = 0 → no breach
+        val afterResetUsage = 0L
+        val result = useCase.execute(testApp, afterResetUsage)
         assertNull(result)
     }
 
     @Test
-    fun `returns null when cooldown exactly has not passed`() {
-        val lastTrigger = now - testApp.cooldownMs
-        // cooldownMs = 30min, now - lastTrigger = 30min exactly → not > cooldown
-        val result = useCase.execute(testApp, testApp.dailyLimitMs, lastTrigger, now)
-        // (now - lastTrigger) = cooldownMs → NOT > cooldown → no breach
-        assertNull(result)
-    }
-
-    @Test
-    fun `returns BreachResult when cooldown just expired by 1ms`() {
-        val lastTrigger = now - testApp.cooldownMs - 1L
-        val result = useCase.execute(testApp, testApp.dailyLimitMs, lastTrigger, now)
+    fun `re-triggers when cycle usage reaches threshold again after reset`() {
+        // Second cycle completes the threshold
+        val result = useCase.execute(testApp, testApp.dailyLimitMs)
         assertNotNull(result)
-    }
-
-    @Test
-    fun `returns BreachResult for large usage values`() {
-        val huggeUsage = Long.MAX_VALUE / 2
-        val result = useCase.execute(testApp, huggeUsage, 0L, now)
-        assertNotNull(result)
-        assertEquals(huggeUsage, result!!.currentUsageMs)
     }
 }

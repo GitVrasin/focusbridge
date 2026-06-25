@@ -23,6 +23,9 @@ class InterventionRepositoryImpl @Inject constructor(
     override suspend fun updateDismissed(eventId: Long) =
         dao.updateDismissed(eventId)
 
+    override suspend fun updateIntentType(eventId: Long, intentType: String) =
+        dao.updateIntentType(eventId, intentType)
+
     override suspend fun getLastTriggerTime(packageName: String): Long =
         dao.getLastTriggerTime(packageName) ?: 0L
 

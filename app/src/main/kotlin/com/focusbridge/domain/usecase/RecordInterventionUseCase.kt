@@ -2,19 +2,29 @@ package com.focusbridge.domain.usecase
 
 import com.focusbridge.domain.model.InterventionEvent
 import com.focusbridge.domain.repository.InterventionRepository
+import com.focusbridge.domain.repository.SessionRepository
 import javax.inject.Inject
 
 class RecordInterventionUseCase @Inject constructor(
-    private val interventionRepository: InterventionRepository
+    private val interventionRepository: InterventionRepository,
+    private val sessionRepository: SessionRepository
 ) {
-    suspend fun recordTriggered(packageName: String, usageMs: Long): Long {
+    suspend fun recordTriggered(packageName: String, usageMs: Long, sessionId: Long = 0L): Long {
         return interventionRepository.recordEvent(
             InterventionEvent(
                 packageName = packageName,
                 triggeredAt = System.currentTimeMillis(),
-                usageAtTriggerMs = usageMs
+                usageAtTriggerMs = usageMs,
+                sessionId = sessionId
             )
         )
+    }
+
+    suspend fun recordIntentSelected(eventId: Long, sessionId: Long, intentType: String) {
+        interventionRepository.updateIntentType(eventId, intentType)
+        if (sessionId > 0L) {
+            sessionRepository.updateIntent(sessionId, intentType)
+        }
     }
 
     suspend fun recordAccepted(eventId: Long, nextActionId: Long) {
@@ -27,16 +37,5 @@ class RecordInterventionUseCase @Inject constructor(
 
     suspend fun recordDismissed(eventId: Long) {
         interventionRepository.updateDismissed(eventId)
-    }
-
-    suspend fun recordExtension(packageName: String, usageMs: Long): Long {
-        return interventionRepository.recordEvent(
-            InterventionEvent(
-                packageName = packageName,
-                triggeredAt = System.currentTimeMillis(),
-                usageAtTriggerMs = usageMs
-            ),
-            isExtension = true
-        )
     }
 }

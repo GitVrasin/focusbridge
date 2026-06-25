@@ -3,10 +3,12 @@ package com.focusbridge.di
 import com.focusbridge.data.repository.AppConfigRepositoryImpl
 import com.focusbridge.data.repository.GoalRepositoryImpl
 import com.focusbridge.data.repository.InterventionRepositoryImpl
+import com.focusbridge.data.repository.SessionRepositoryImpl
 import com.focusbridge.data.repository.UsageRepositoryImpl
 import com.focusbridge.domain.repository.AppConfigRepository
 import com.focusbridge.domain.repository.GoalRepository
 import com.focusbridge.domain.repository.InterventionRepository
+import com.focusbridge.domain.repository.SessionRepository
 import com.focusbridge.domain.repository.UsageRepository
 import dagger.Binds
 import dagger.Module
@@ -29,4 +31,7 @@ abstract class RepositoryModule {
 
     @Binds @Singleton
     abstract fun bindInterventionRepository(impl: InterventionRepositoryImpl): InterventionRepository
+
+    @Binds @Singleton
+    abstract fun bindSessionRepository(impl: SessionRepositoryImpl): SessionRepository
 }

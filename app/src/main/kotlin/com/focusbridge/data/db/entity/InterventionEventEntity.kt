@@ -18,16 +18,20 @@ data class InterventionEventEntity(
     val packageName: String,
     val triggeredAt: Long,
     val usageAtTriggerMs: Long,
+    val sessionId: Long = 0,
+    val intentType: String? = null,
     val nextActionId: Long?,
     val wasAccepted: Boolean?,
     val acceptedAt: Long?,
-    val isExtension: Boolean = false  // true when triggered by "5 more minutes" expiry
+    val isExtension: Boolean = false
 ) {
     fun toDomain() = InterventionEvent(
         id = id,
         packageName = packageName,
         triggeredAt = triggeredAt,
         usageAtTriggerMs = usageAtTriggerMs,
+        sessionId = sessionId,
+        intentType = intentType,
         nextActionId = nextActionId,
         wasAccepted = wasAccepted,
         acceptedAt = acceptedAt
@@ -40,6 +44,8 @@ data class InterventionEventEntity(
                 packageName = event.packageName,
                 triggeredAt = event.triggeredAt,
                 usageAtTriggerMs = event.usageAtTriggerMs,
+                sessionId = event.sessionId,
+                intentType = event.intentType,
                 nextActionId = event.nextActionId,
                 wasAccepted = event.wasAccepted,
                 acceptedAt = event.acceptedAt,

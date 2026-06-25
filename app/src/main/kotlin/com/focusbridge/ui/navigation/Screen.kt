@@ -12,4 +12,5 @@ sealed class Screen(val route: String) {
     data object EditNextActions : Screen("edit_next_actions/{goalId}") {
         fun route(goalId: Long) = "edit_next_actions/$goalId"
     }
+    data object Insights : Screen("insights")
 }

@@ -19,6 +19,9 @@ interface InterventionEventDao {
     @Query("UPDATE intervention_events SET wasAccepted = 0 WHERE id = :eventId")
     suspend fun updateDismissed(eventId: Long)
 
+    @Query("UPDATE intervention_events SET intentType = :intentType WHERE id = :eventId")
+    suspend fun updateIntentType(eventId: Long, intentType: String)
+
     @Query("""
         SELECT MAX(triggeredAt) FROM intervention_events
         WHERE packageName = :packageName
