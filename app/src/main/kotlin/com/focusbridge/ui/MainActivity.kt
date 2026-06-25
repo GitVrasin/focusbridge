@@ -1,6 +1,5 @@
 package com.focusbridge.ui
 
-import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -39,7 +38,7 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
                 AppNavHost(
                     navController = navController,
-                    startDestination = startDestination
+                    startDestination = startDestination,
                 )
             }
         }
@@ -53,10 +52,6 @@ class MainActivity : ComponentActivity() {
 
     private fun ensureMonitorServiceRunning() {
         val intent = UsageMonitorService.startIntent(this)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(intent)
-        } else {
-            startService(intent)
-        }
+        startForegroundService(intent)
     }
 }

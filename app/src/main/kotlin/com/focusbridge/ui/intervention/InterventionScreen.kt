@@ -10,7 +10,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.focusbridge.ui.theme.OverLimitRed
-import com.focusbridge.ui.theme.OnSurface
 
 @Composable
 fun InterventionScreen(viewModel: InterventionViewModel) {
@@ -21,7 +20,7 @@ fun InterventionScreen(viewModel: InterventionViewModel) {
 
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
+        color = MaterialTheme.colorScheme.background,
     ) {
         Column(
             modifier = Modifier

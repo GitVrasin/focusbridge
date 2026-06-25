@@ -3,6 +3,7 @@ package com.focusbridge.ui.intervention
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import androidx.core.net.toUri
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
@@ -12,7 +13,6 @@ import androidx.lifecycle.lifecycleScope
 import com.focusbridge.ui.theme.FocusBridgeTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
-import android.net.Uri
 
 @AndroidEntryPoint
 class InterventionActivity : ComponentActivity() {
@@ -43,11 +43,13 @@ class InterventionActivity : ComponentActivity() {
             nextActionLabel = nextActionLabel,
             nextActionTarget = nextActionTarget,
             nextActionType = nextActionType,
-            eventId = eventId
+            eventId = eventId,
         )
 
         // Intercept back press → treat as dismiss
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+        onBackPressedDispatcher.addCallback(
+            this,
+            object : OnBackPressedCallback(enabled = true) {
             override fun handleOnBackPressed() {
                 viewModel.onDismiss()
             }
@@ -72,7 +74,7 @@ class InterventionActivity : ComponentActivity() {
 
     private fun openUrl(url: String) {
         runCatching {
-            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+            startActivity(Intent(Intent.ACTION_VIEW, url.toUri()).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             })
         }

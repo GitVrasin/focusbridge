@@ -54,9 +54,6 @@ class UsageMonitorService : LifecycleService() {
         private const val DATA_RETENTION_DAYS = 30
 
         fun startIntent(context: Context) = Intent(context, UsageMonitorService::class.java)
-        fun stopIntent(context: Context) = Intent(context, UsageMonitorService::class.java).apply {
-            action = ACTION_STOP
-        }
 
         private const val ACTION_STOP = "com.focusbridge.STOP_MONITOR"
     }
@@ -70,7 +67,7 @@ class UsageMonitorService : LifecycleService() {
             startForeground(
                 ServiceNotificationHelper.SERVICE_NOTIFICATION_ID,
                 notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
             )
         } else {
             startForeground(ServiceNotificationHelper.SERVICE_NOTIFICATION_ID, notification)
@@ -138,7 +135,7 @@ class UsageMonitorService : LifecycleService() {
 
                 if (!usageStatsWrapper.hasPermission()) {
                     Log.w(TAG, "Usage access permission revoked — pausing monitoring")
-                    delay(10_000L)
+                    delay(10000)
                     continue
                 }
 
@@ -158,7 +155,7 @@ class UsageMonitorService : LifecycleService() {
 
     private suspend fun checkAndTrigger(app: DistractingApp, usageMs: Long, nowMs: Long) {
         val lastTrigger = lastTriggerCache[app.packageName] ?: 0L
-        val breach = checkThresholdBreachUseCase.execute(app, usageMs, lastTrigger, nowMs)
+        checkThresholdBreachUseCase.execute(app, usageMs, lastTrigger, nowMs)
             ?: return
 
         val nextAction = getNextActionUseCase()
@@ -175,7 +172,7 @@ class UsageMonitorService : LifecycleService() {
 
     private fun acquireWakeLockForLaunch() {
         wakeLock?.release()
-        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+        val pm = getSystemService(POWER_SERVICE) as PowerManager
         wakeLock = pm.newWakeLock(
             PowerManager.PARTIAL_WAKE_LOCK,
             "FocusBridge:InterventionLaunch"
@@ -185,7 +182,7 @@ class UsageMonitorService : LifecycleService() {
     }
 
     private fun scheduleHeartbeat() {
-        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val alarmManager = getSystemService(ALARM_SERVICE) as AlarmManager
         val intent = PendingIntent.getBroadcast(
             this, 0,
             Intent(this, HeartbeatReceiver::class.java),
@@ -193,7 +190,7 @@ class UsageMonitorService : LifecycleService() {
         )
 
         val triggerMs = System.currentTimeMillis() + HEARTBEAT_INTERVAL_MS
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && alarmManager.canScheduleExactAlarms()) {
+        if ((Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) && alarmManager.canScheduleExactAlarms()) {
             alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMs, intent)
         } else {
             alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMs, intent)

@@ -18,7 +18,7 @@ import com.focusbridge.data.db.entity.UsageRecordEntity
         NextActionEntity::class,
         DistractingAppEntity::class,
         UsageRecordEntity::class,
-        InterventionEventEntity::class
+        InterventionEventEntity::class,
     ],
     version = 1,
     exportSchema = true
