@@ -10,82 +10,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.focusbridge.domain.model.SessionIntent
 import com.focusbridge.ui.theme.OverLimitRed
 
 @Composable
 fun InterventionScreen(viewModel: InterventionViewModel) {
     val state by viewModel.uiState.collectAsState()
-
-    when (state.phase) {
-        InterventionPhase.INTENT_CAPTURE -> IntentCaptureScreen(
-            appDisplayName = state.appDisplayName,
-            onIntentSelected = viewModel::onIntentSelected
-        )
-        InterventionPhase.INTERVENTION -> InterventionContentScreen(
-            state = state,
-            onGoToGoal = viewModel::onGoToGoal,
-            onContinue = viewModel::onContinue,
-            onMuteForToday = viewModel::onMuteForToday
-        )
-    }
-}
-
-@Composable
-private fun IntentCaptureScreen(
-    appDisplayName: String,
-    onIntentSelected: (SessionIntent) -> Unit
-) {
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 32.dp, vertical = 64.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("🤔", fontSize = 48.sp)
-                Spacer(Modifier.height(24.dp))
-                Text(
-                    "Why did you open",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    appDisplayName,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
-            }
-
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                SessionIntent.entries.forEach { intent ->
-                    OutlinedButton(
-                        onClick = { onIntentSelected(intent) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text(
-                            intent.label,
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(8.dp))
-        }
-    }
+    InterventionContentScreen(
+        state = state,
+        onGoToGoal = viewModel::onGoToGoal,
+        onContinue = viewModel::onContinue,
+        onMuteForToday = viewModel::onMuteForToday
+    )
 }
 
 @Composable
@@ -131,22 +66,6 @@ private fun InterventionContentScreen(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-
-                // Intent summary
-                if (state.selectedIntent != null) {
-                    Spacer(Modifier.height(12.dp))
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text(
-                            "Opened because: ${state.selectedIntent.label}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                        )
-                    }
-                }
             }
 
             // Middle: goal reminder

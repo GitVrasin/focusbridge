@@ -3,7 +3,6 @@ package com.focusbridge.ui.intervention
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.focusbridge.data.prefs.UserPreferencesDataStore
-import com.focusbridge.domain.model.SessionIntent
 import com.focusbridge.domain.repository.GoalRepository
 import com.focusbridge.domain.usecase.RecordInterventionUseCase
 import com.focusbridge.service.UsageMonitorService
@@ -18,15 +17,11 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-enum class InterventionPhase { INTENT_CAPTURE, INTERVENTION }
-
 data class InterventionUiState(
-    val phase: InterventionPhase = InterventionPhase.INTENT_CAPTURE,
     val packageName: String = "",
     val appDisplayName: String = "",
     val sessionDurationMs: Long = 0L,
     val limitMs: Long = 0L,
-    val selectedIntent: SessionIntent? = null,
     val nextActionId: Long? = null,
     val nextActionLabel: String? = null,
     val nextActionTarget: String? = null,
@@ -67,7 +62,6 @@ class InterventionViewModel @Inject constructor(
         eventId: Long,
         sessionId: Long = 0L
     ) {
-        val isGlobal = packageName == UsageMonitorService.GLOBAL_KEY
         _uiState.update {
             it.copy(
                 packageName = packageName,
@@ -80,27 +74,12 @@ class InterventionViewModel @Inject constructor(
                 nextActionType = nextActionType,
                 eventId = eventId,
                 sessionId = sessionId,
-                isGlobalMode = isGlobal,
-                // Global mode skips intent capture — it tracks combined time, not a single session open.
-                phase = if (isGlobal) InterventionPhase.INTERVENTION else InterventionPhase.INTENT_CAPTURE
+                isGlobalMode = packageName == UsageMonitorService.GLOBAL_KEY
             )
         }
         viewModelScope.launch {
             val goal = goalRepository.getActiveGoal()
             _uiState.update { it.copy(goalTitle = goal?.title ?: "") }
-        }
-    }
-
-    fun onIntentSelected(intent: SessionIntent) {
-        viewModelScope.launch {
-            val state = _uiState.value
-            recordInterventionUseCase.recordIntentSelected(state.eventId, state.sessionId, intent.name)
-            _uiState.update {
-                it.copy(
-                    selectedIntent = intent,
-                    phase = InterventionPhase.INTERVENTION
-                )
-            }
         }
     }
 
@@ -126,9 +105,6 @@ class InterventionViewModel @Inject constructor(
             _effects.emit(InterventionEffect.Finish)
         }
     }
-
-    // Back press on intent capture screen also counts as continue (user goes back to the app).
-    fun onDismiss() = onContinue()
 
     fun onMuteForToday() {
         viewModelScope.launch {

@@ -26,6 +26,11 @@
     <!-- Partial wake lock to keep CPU alive during monitoring tick -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
+    <!-- Required for setFullScreenIntent() to fire the activity on Android 10+.
+         On Android 14+, this permission is restricted to call/alarm apps; other apps are
+         notified via high-priority notification instead (see InterventionLauncher). -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+
     <application
         android:name=".FocusBridgeApp"
         android:allowBackup="false"
